@@ -1,0 +1,61 @@
+version: '3.2'
+services:
+  ckan:
+    image: vanuan/ckan-cv-ua
+    environment:
+      - CKAN_SQLALCHEMY_URL=postgres://postgres:pass@postgres/ckan
+      - CKAN_CONFIG=/etc/ckan
+      - CKAN_SOLR_URL=http://solr:8983/solr/ckancore
+      - CKAN_REDIS_URL=redis://redis:6379/1
+      - CKAN_DATAPUSHER_URL=http://datapusher:8800
+ #     - CKAN_SITE_URL=https://data.city.cv.ua/
+      - CKAN_SITE_URL=http://ckan:5000
+      - CKAN_STORAGE_PATH=/var/lib/ckan/uploads/
+    ports:
+      - 5000:5000
+    volumes:
+      - ./config/ckan/ckan.ini:/etc/ckan/ckan.ini
+      - ./data/uploads/:/var/lib/ckan/uploads/
+    depends_on:
+      - postgres
+      - postgres-datastore
+      - solr
+      - redis
+      - datapusher
+
+  postgres:
+    image: postgres:9.6-alpine
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=ckan
+      - PGDATA=/data
+    volumes:
+      - ./data/pgdata/:/data
+
+  postgres-datastore:
+    image: postgres:9.6-alpine
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=datastore_default
+      - PGDATA=/data
+    volumes:
+      - ./data/pgdatastore/:/data
+      - ./scripts/datastore:/docker-entrypoint-initdb.d/
+
+  solr:
+    image: solr:6.6-alpine
+    ports:
+      - 8983:8983
+    volumes:
+      - ./data/solr/:/opt/solr/server/solr/ckancore/
+
+  datapusher:
+    image: vanuan/ckan-datapusher
+    environment:
+      - JOB_CONFIG=/config/datapusher_settings.py
+    volumes:
+      - ./config/datapusher_settings.py:/config/datapusher_settings.py
+    command: python datapusher/datapusher/main.py /config/datapusher_settings.py
+
+  redis:
+    image: redis:4-alpine
